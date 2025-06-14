@@ -220,21 +220,25 @@ def semantic_search(query: str, top_k: int = 3) -> dict:
         }
 
 def generate_answer(query: str, context_texts: List[str]) -> str:
-    """Generate answer using AIproxy"""
+    """Generate answer using AIproxy based on scraped forum data"""
+    if not context_texts:
+        return "I apologize, but I couldn't find any relevant information in the forum discussions to answer your question."
+        
     context = "\n\n---\n\n".join(context_texts)
     messages = [
         {
             "role": "system", 
-            "content": """You are a helpful teaching assistant that answers questions based on forum discussions. 
-            Follow these guidelines:
-            1. Be clear and concise in your answers
-            2. If you're not sure about something, say so
-            3. For future events or unavailable information, clearly state that the information is not available
-            4. When discussing tools or options, mention both recommended and acceptable alternatives
-            5. Always base your answers on the provided context
-            6. If the context doesn't contain relevant information, say so"""
+            "content": """You are a teaching assistant that answers questions based ONLY on the provided forum discussion excerpts. 
+            Follow these strict guidelines:
+            1. ONLY use information from the provided forum excerpts
+            2. If the excerpts don't contain relevant information, say "I couldn't find any relevant information in the forum discussions"
+            3. DO NOT make assumptions or provide information not present in the excerpts
+            4. If the excerpts contain conflicting information, mention this
+            5. Quote specific parts of the excerpts when relevant
+            6. If asked about future events or information not in the excerpts, say you don't have that information
+            7. Maintain the original context and meaning from the forum discussions"""
         },
-        {"role": "user", "content": f"Based on these forum excerpts:\n\n{context}\n\nQuestion: {query}\n\nAnswer:"}
+        {"role": "user", "content": f"Here are the relevant forum discussion excerpts:\n\n{context}\n\nBased ONLY on these excerpts, please answer: {query}\n\nAnswer:"}
     ]
     
     url = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
