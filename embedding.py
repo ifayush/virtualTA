@@ -165,9 +165,11 @@ def semantic_search(query: str, top_k: int = 3) -> dict:
     """Perform semantic search using Pinecone."""
     try:
         # Get query embedding
+        print(f"Getting embedding for query: {query}")
         query_embedding = get_embedding(query)
         
         # Search in Pinecone
+        print("Searching in Pinecone...")
         results = index.query(
             vector=query_embedding,
             top_k=top_k,
@@ -190,6 +192,7 @@ def semantic_search(query: str, top_k: int = 3) -> dict:
             })
         
         # Generate answer
+        print("Generating answer...")
         context_texts = [f"Topic: {res['topic_title']}\nPosts: {res['post_numbers']}" for res in formatted_results]
         answer = generate_answer(query, context_texts)
         
@@ -208,8 +211,11 @@ def semantic_search(query: str, top_k: int = 3) -> dict:
         
     except Exception as e:
         print(f"Error in semantic search: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return {
-            "answer": "I apologize, but I encountered an error while searching for information.",
+            "answer": f"I apologize, but I encountered an error while processing your question. Please try again. Error details: {str(e)}",
             "links": []
         }
 
@@ -227,7 +233,7 @@ def generate_answer(query: str, context_texts: List[str]) -> str:
         "Authorization": f"Bearer {API_KEY}"
     }
     payload = {
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4o-mini",
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 500
@@ -237,6 +243,7 @@ def generate_answer(query: str, context_texts: List[str]) -> str:
         result = response.json()
         return result["choices"][0]["message"]["content"]
     else:
+        print(f"Error response from AIproxy: {response.text}")
         raise Exception(f"Error generating answer: {response.text}")
 
 # Example usage
