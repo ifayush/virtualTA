@@ -4,20 +4,25 @@
         {
             "src": "app.py",
             "use": "@vercel/python"
-        },
-        {
-            "src": "*.html",
-            "use": "@vercel/static"
         }
     ],
     "routes": [
         {
-            "src": "/static/(.*)",
-            "dest": "/static/$1"
-        },
-        {
             "src": "/(.*)",
-            "dest": "app.py"
+            "dest": "app.py",
+            "methods": [
+                "GET",
+                "POST",
+                "OPTIONS"
+            ],
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+            }
         }
-    ]
+    ],
+    "env": {
+        "AIPROXY_TOKEN": "eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6IjIyZjEwMDA0MzdAZHMuc3R1ZHkuaWl0bS5hYy5pbiJ9.NdUnWWhsTc8BCWsSXhL6EX_8f-POpIa9yITqbJImw28"
+    }
 }
