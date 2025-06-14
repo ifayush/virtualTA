@@ -5,8 +5,7 @@ import numpy as np
 import re
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import aiohttp
@@ -54,9 +53,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Verify API key is set
 if not API_KEY:
@@ -602,19 +598,132 @@ def parse_llm_response(response):
 # Define API routes
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return FileResponse("index.html")
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Virtual TA</title>
+        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+        <style>
+            .chat-container {
+                height: calc(100vh - 200px);
+            }
+            .message {
+                max-width: 80%;
+                margin: 10px;
+                padding: 15px;
+                border-radius: 10px;
+            }
+            .user-message {
+                background-color: #e3f2fd;
+                margin-left: auto;
+            }
+            .assistant-message {
+                background-color: #f5f5f5;
+                margin-right: auto;
+            }
+            .link-card {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 10px;
+                margin: 5px 0;
+            }
+            .link-card:hover {
+                background-color: #e9ecef;
+            }
+        </style>
+    </head>
+    <body class="bg-gray-100">
+        <div class="container mx-auto px-4 py-8">
+            <h1 class="text-3xl font-bold text-center mb-8">Virtual TA</h1>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div id="chat-container" class="chat-container overflow-y-auto mb-4">
+                    <div class="message assistant-message">
+                        Hello! I'm your Virtual TA. How can I help you today?
+                    </div>
+                </div>
+                
+                <div class="flex gap-4">
+                    <input type="text" id="question-input" 
+                           class="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Type your question here...">
+                    <button onclick="askQuestion()" 
+                            class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        Ask
+                    </button>
+                </div>
+            </div>
+        </div>
 
-@app.post("/query")
-async def query_knowledge_base(request: QueryRequest):
-    try:
-        logger.info(f"Received query: {request.question}")
-        result = semantic_search(request.question)
-        return result
-    except Exception as e:
-        logger.error(f"Error processing query: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        <script>
+            const API_URL = window.location.origin;
 
-# Health check endpoint
+            async function askQuestion() {
+                const input = document.getElementById('question-input');
+                const question = input.value.trim();
+                
+                if (!question) return;
+                
+                // Add user message to chat
+                addMessage(question, 'user');
+                input.value = '';
+                
+                try {
+                    const response = await fetch(`${API_URL}/query`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ question }),
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Add assistant's answer
+                    addMessage(data.answer, 'assistant');
+                    
+                    // Add links if any
+                    if (data.links && data.links.length > 0) {
+                        const linksHtml = data.links.map(link => `
+                            <div class="link-card">
+                                <a href="${link.url}" target="_blank" class="text-blue-500 hover:underline">
+                                    ${link.text}
+                                </a>
+                            </div>
+                        `).join('');
+                        
+                        addMessage(`<div class="mt-2"><strong>Related Links:</strong>${linksHtml}</div>`, 'assistant');
+                    }
+                } catch (error) {
+                    addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+                    console.error('Error:', error);
+                }
+            }
+
+            function addMessage(text, sender) {
+                const container = document.getElementById('chat-container');
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}-message`;
+                messageDiv.innerHTML = text;
+                container.appendChild(messageDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // Allow Enter key to submit question
+            document.getElementById('question-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    askQuestion();
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+
 @app.get("/health")
 async def health_check():
     try:
@@ -626,6 +735,16 @@ async def health_check():
         return {"status": "healthy", "database_entries": count}
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
+
+@app.post("/query")
+async def query_knowledge_base(request: QueryRequest):
+    try:
+        logger.info(f"Received query: {request.question}")
+        result = semantic_search(request.question)
+        return result
+    except Exception as e:
+        logger.error(f"Error processing query: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True) 
