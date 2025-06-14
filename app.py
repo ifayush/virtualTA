@@ -634,6 +634,13 @@ async def root():
             .link-card:hover {
                 background-color: #e9ecef;
             }
+            .error-message {
+                background-color: #ffebee;
+                color: #c62828;
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
         </style>
     </head>
     <body class="bg-gray-100">
@@ -661,25 +668,42 @@ async def root():
 
         <script>
             const API_URL = window.location.origin;
+            let isProcessing = false;
 
             async function askQuestion() {
+                if (isProcessing) return;
+                
                 const input = document.getElementById('question-input');
                 const question = input.value.trim();
                 
                 if (!question) return;
                 
-                // Add user message to chat
-                addMessage(question, 'user');
-                input.value = '';
-                
                 try {
+                    isProcessing = true;
+                    input.disabled = true;
+                    
+                    // Add user message to chat
+                    addMessage(question, 'user');
+                    input.value = '';
+                    
+                    // Add loading message
+                    const loadingId = addMessage('Thinking...', 'assistant');
+                    
                     const response = await fetch(`${API_URL}/query`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         },
-                        body: JSON.stringify({ question }),
+                        body: JSON.stringify({ question })
                     });
+                    
+                    // Remove loading message
+                    removeMessage(loadingId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
                     
                     const data = await response.json();
                     
@@ -699,23 +723,37 @@ async def root():
                         addMessage(`<div class="mt-2"><strong>Related Links:</strong>${linksHtml}</div>`, 'assistant');
                     }
                 } catch (error) {
-                    addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
                     console.error('Error:', error);
+                    addMessage(`<div class="error-message">Sorry, I encountered an error: ${error.message}</div>`, 'assistant');
+                } finally {
+                    isProcessing = false;
+                    input.disabled = false;
+                    input.focus();
                 }
             }
 
             function addMessage(text, sender) {
                 const container = document.getElementById('chat-container');
                 const messageDiv = document.createElement('div');
+                const messageId = 'msg-' + Date.now();
+                messageDiv.id = messageId;
                 messageDiv.className = `message ${sender}-message`;
                 messageDiv.innerHTML = text;
                 container.appendChild(messageDiv);
                 container.scrollTop = container.scrollHeight;
+                return messageId;
+            }
+
+            function removeMessage(messageId) {
+                const message = document.getElementById(messageId);
+                if (message) {
+                    message.remove();
+                }
             }
 
             // Allow Enter key to submit question
             document.getElementById('question-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !isProcessing) {
                     askQuestion();
                 }
             });
