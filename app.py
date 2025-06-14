@@ -27,7 +27,7 @@ SIMILARITY_THRESHOLD = 0.68  # Lowered threshold for better recall
 MAX_RESULTS = 10  # Increased to get more context
 load_dotenv()
 MAX_CONTEXT_CHUNKS = 4  # Increased number of chunks per source
-API_KEY = os.getenv("API_KEY")  # Get API key from environment variable
+API_KEY = os.getenv("AIPROXY_TOKEN")  # Get API key from environment variable
 
 # Models
 class QueryRequest(BaseModel):
@@ -56,7 +56,7 @@ app.add_middleware(
 
 # Verify API key is set
 if not API_KEY:
-    logger.error("API_KEY environment variable is not set. The application will not function correctly.")
+    logger.error("AIPROXY_TOKEN environment variable is not set. The application will not function correctly.")
 
 # Create a connection to the SQLite database
 def get_db_connection():
@@ -134,10 +134,10 @@ def cosine_similarity(vec1, vec2):
         logger.error(traceback.format_exc())
         return 0.0  # Return 0 similarity on error rather than crashing
 
-# Function to get embedding from Hugging Face's Inference API
+# Function to get embedding from AIProxy
 async def get_embedding(text, max_retries=3):
     if not API_KEY:
-        error_msg = "API_KEY environment variable not set"
+        error_msg = "AIPROXY_TOKEN environment variable not set"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
     
@@ -145,23 +145,24 @@ async def get_embedding(text, max_retries=3):
     while retries < max_retries:
         try:
             logger.info(f"Getting embedding for text (length: {len(text)})")
-            # Call Hugging Face's Inference API
-            url = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
+            # Call AIProxy API
+            url = "https://aiproxy.sanand.workers.dev/openai/v1/embeddings"
             headers = {
                 "Authorization": f"Bearer {API_KEY}",
                 "Content-Type": "application/json"
             }
             payload = {
-                "inputs": [text]
+                "model": "text-embedding-3-small",
+                "input": text
             }
             
-            logger.info("Sending request to Hugging Face Inference API")
+            logger.info("Sending request to AIProxy API")
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, json=payload) as response:
                     if response.status == 200:
                         result = await response.json()
                         logger.info("Successfully received embedding")
-                        return result[0]  # Return the first embedding
+                        return result["data"][0]["embedding"]
                     elif response.status == 429:  # Rate limit error
                         error_text = await response.text()
                         logger.warning(f"Rate limit reached, retrying after delay (retry {retries+1}): {error_text}")
@@ -389,7 +390,7 @@ async def enrich_with_adjacent_chunks(conn, results):
 # Function to generate an answer using LLM with improved prompt
 async def generate_answer(question, relevant_results, max_retries=2):
     if not API_KEY:
-        error_msg = "API_KEY environment variable not set"
+        error_msg = "AIPROXY_TOKEN environment variable not set"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
     
@@ -467,7 +468,7 @@ async def generate_answer(question, relevant_results, max_retries=2):
 # Function to process multimodal content (text + image)
 async def process_multimodal_query(question, image_base64):
     if not API_KEY:
-        error_msg = "API_KEY environment variable not set"
+        error_msg = "AIPROXY_TOKEN environment variable not set"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
         
