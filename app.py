@@ -5,13 +5,14 @@ import numpy as np
 import re
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import aiohttp
 import asyncio
 import logging
 import base64
-from fastapi.responses import JSONResponse
 import uvicorn
 import traceback
 from dotenv import load_dotenv
@@ -23,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 # Constants
 DB_PATH = "knowledge_base.db"
-SIMILARITY_THRESHOLD = 0.68  # Lowered threshold for better recall
-MAX_RESULTS = 10  # Increased to get more context
+SIMILARITY_THRESHOLD = 0.68
+MAX_RESULTS = 10
 load_dotenv()
-MAX_CONTEXT_CHUNKS = 4  # Increased number of chunks per source
-API_KEY = os.getenv("AIPROXY_TOKEN")  # Get API key from environment variable
+MAX_CONTEXT_CHUNKS = 4
+API_KEY = os.getenv("AIPROXY_TOKEN")
 
 # Models
 class QueryRequest(BaseModel):
@@ -43,7 +44,7 @@ class QueryResponse(BaseModel):
     links: List[LinkInfo]
 
 # Initialize FastAPI app
-app = FastAPI(title="RAG Query API", description="API for querying the RAG knowledge base")
+app = FastAPI(title="Virtual TA", description="A Virtual Teaching Assistant")
 
 # Add CORS middleware
 app.add_middleware(
@@ -53,6 +54,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Verify API key is set
 if not API_KEY:
@@ -596,66 +600,32 @@ def parse_llm_response(response):
         }
 
 # Define API routes
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    return {
-        "message": "Welcome to the Virtual TA API",
-        "endpoints": {
-            "/query": "POST - Submit a question",
-            "/health": "GET - Check API health"
-        }
-    }
+    return FileResponse("index.html")
 
 @app.post("/query")
 async def query_knowledge_base(request: QueryRequest):
     try:
-        logger.info(f"Received query request: question='{request.question[:50]}...', image_provided={request.image is not None}")
-        # Use the new semantic_search logic
+        logger.info(f"Received query: {request.question}")
         result = semantic_search(request.question)
         return result
     except Exception as e:
-        logger.error(f"Error in /query endpoint: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"Error processing query: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Health check endpoint
 @app.get("/health")
 async def health_check():
     try:
-        # Try to connect to the database as part of health check
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        
-        # Check if tables exist and have data
         cursor.execute("SELECT COUNT(*) FROM discourse_chunks")
-        discourse_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM markdown_chunks")
-        markdown_count = cursor.fetchone()[0]
-        
-        # Check if any embeddings exist
-        cursor.execute("SELECT COUNT(*) FROM discourse_chunks WHERE embedding IS NOT NULL")
-        discourse_embeddings = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM markdown_chunks WHERE embedding IS NOT NULL")
-        markdown_embeddings = cursor.fetchone()[0]
-        
+        count = cursor.fetchone()[0]
         conn.close()
-        
-        return {
-            "status": "healthy", 
-            "database": "connected", 
-            "api_key_set": bool(API_KEY),
-            "discourse_chunks": discourse_count,
-            "markdown_chunks": markdown_count,
-            "discourse_embeddings": discourse_embeddings,
-            "markdown_embeddings": markdown_embeddings
-        }
+        return {"status": "healthy", "database_entries": count}
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return JSONResponse(
-            status_code=500,
-            content={"status": "unhealthy", "error": str(e), "api_key_set": bool(API_KEY)}
-        )
+        return {"status": "unhealthy", "error": str(e)}
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True) 
