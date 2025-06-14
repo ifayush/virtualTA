@@ -62,12 +62,35 @@ def get_embedding(text):
         "model": "text-embedding-3-small",
         "input": text
     }
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        result = response.json()
-        return result["data"][0]["embedding"]
-    else:
-        raise Exception(f"Error getting embedding: {response.text}")
+    
+    try:
+        print(f"Making embedding request to {url}")
+        print(f"Headers: {headers}")
+        print(f"Payload: {payload}")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        print(f"Response status: {response.status_code}")
+        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result["data"][0]["embedding"]
+        else:
+            error_msg = f"Error getting embedding: Status {response.status_code}, Response: {response.text}"
+            print(error_msg)
+            raise Exception(error_msg)
+    except requests.exceptions.Timeout:
+        error_msg = "Timeout while getting embedding"
+        print(error_msg)
+        raise Exception(error_msg)
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Request error while getting embedding: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
+    except Exception as e:
+        error_msg = f"Unexpected error while getting embedding: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
 
 def process_posts(filename: str) -> Dict[int, Dict[str, Any]]:
     """Load and group posts by topic"""
@@ -254,16 +277,33 @@ def generate_answer(query: str, context_texts: List[str]) -> str:
     }
     
     try:
-        response = requests.post(url, headers=headers, json=payload)
+        print(f"Making chat completion request to {url}")
+        print(f"Headers: {headers}")
+        print(f"Payload: {json.dumps(payload, indent=2)}")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        print(f"Response status: {response.status_code}")
+        print(f"Response text: {response.text[:200]}...")  # Print first 200 chars of response
+        
         if response.status_code == 200:
             result = response.json()
             return result["choices"][0]["message"]["content"]
         else:
-            print(f"Error response from AIproxy: {response.text}")
-            raise Exception(f"Error generating answer: {response.text}")
+            error_msg = f"Error generating answer: Status {response.status_code}, Response: {response.text}"
+            print(error_msg)
+            raise Exception(error_msg)
+    except requests.exceptions.Timeout:
+        error_msg = "Timeout while generating answer"
+        print(error_msg)
+        raise Exception(error_msg)
+    except requests.exceptions.RequestException as e:
+        error_msg = f"Request error while generating answer: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
     except Exception as e:
-        print(f"Exception in generate_answer: {str(e)}")
-        return "I apologize, but I encountered an error while generating the answer. Please try again."
+        error_msg = f"Unexpected error while generating answer: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
 
 # Example usage
 if __name__ == "__main__":
