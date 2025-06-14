@@ -223,7 +223,17 @@ def generate_answer(query: str, context_texts: List[str]) -> str:
     """Generate answer using AIproxy"""
     context = "\n\n---\n\n".join(context_texts)
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that answers questions based on forum discussions."},
+        {
+            "role": "system", 
+            "content": """You are a helpful teaching assistant that answers questions based on forum discussions. 
+            Follow these guidelines:
+            1. Be clear and concise in your answers
+            2. If you're not sure about something, say so
+            3. For future events or unavailable information, clearly state that the information is not available
+            4. When discussing tools or options, mention both recommended and acceptable alternatives
+            5. Always base your answers on the provided context
+            6. If the context doesn't contain relevant information, say so"""
+        },
         {"role": "user", "content": f"Based on these forum excerpts:\n\n{context}\n\nQuestion: {query}\n\nAnswer:"}
     ]
     
@@ -238,13 +248,18 @@ def generate_answer(query: str, context_texts: List[str]) -> str:
         "temperature": 0.7,
         "max_tokens": 500
     }
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        result = response.json()
-        return result["choices"][0]["message"]["content"]
-    else:
-        print(f"Error response from AIproxy: {response.text}")
-        raise Exception(f"Error generating answer: {response.text}")
+    
+    try:
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
+        else:
+            print(f"Error response from AIproxy: {response.text}")
+            raise Exception(f"Error generating answer: {response.text}")
+    except Exception as e:
+        print(f"Exception in generate_answer: {str(e)}")
+        return "I apologize, but I encountered an error while generating the answer. Please try again."
 
 # Example usage
 if __name__ == "__main__":
