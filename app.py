@@ -596,6 +596,16 @@ def parse_llm_response(response):
         }
 
 # Define API routes
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to the Virtual TA API",
+        "endpoints": {
+            "/query": "POST - Submit a question",
+            "/health": "GET - Check API health"
+        }
+    }
+
 @app.post("/query")
 async def query_knowledge_base(request: QueryRequest):
     try:
