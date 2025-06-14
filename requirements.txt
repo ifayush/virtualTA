@@ -1,0 +1,17 @@
+requests==2.31.0
+pinecone-client==3.0.2
+python-dotenv==1.0.1
+tqdm==4.66.2
+fastapi==0.109.2
+uvicorn==0.27.1
+aiohttp
+numpy
+pydantic
+beautifulsoup4==4.12.3
+html2text
+markdown==3.5.2
+python-multipart==0.0.9
+setuptools
+playwright==1.42.0
+markdownify
+openai==1.12.0 
