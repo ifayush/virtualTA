@@ -45,14 +45,13 @@ class QueryResponse(BaseModel):
 # Initialize FastAPI app
 app = FastAPI(title="Virtual TA", description="A Virtual Teaching Assistant")
 
-# Add CORS middleware with more specific configuration
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-    expose_headers=["*"]
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Verify API key is set
@@ -596,11 +595,7 @@ def parse_llm_response(response):
             "links": []
         }
 
-# Test endpoint to verify API is working
-@app.get("/test")
-async def test_endpoint():
-    return {"status": "ok", "message": "API is working"}
-
+# Define API routes
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return """
@@ -675,23 +670,6 @@ async def root():
             const API_URL = window.location.origin;
             let isProcessing = false;
 
-            // Test API connectivity on page load
-            async function testAPI() {
-                try {
-                    const response = await fetch(`${API_URL}/test`);
-                    if (!response.ok) {
-                        throw new Error(`API test failed: ${response.status}`);
-                    }
-                    console.log('API test successful');
-                } catch (error) {
-                    console.error('API test failed:', error);
-                    addMessage(`<div class="error-message">Warning: API connection test failed. Some features may not work.</div>`, 'assistant');
-                }
-            }
-
-            // Run API test when page loads
-            testAPI();
-
             async function askQuestion() {
                 if (isProcessing) return;
                 
@@ -711,7 +689,6 @@ async def root():
                     // Add loading message
                     const loadingId = addMessage('Thinking...', 'assistant');
                     
-                    console.log('Making request to:', `${API_URL}/query`);
                     const response = await fetch(`${API_URL}/query`, {
                         method: 'POST',
                         headers: {
@@ -729,7 +706,6 @@ async def root():
                     }
                     
                     const data = await response.json();
-                    console.log('Received response:', data);
                     
                     // Add assistant's answer
                     addMessage(data.answer, 'assistant');
